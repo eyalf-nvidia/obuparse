@@ -1,8 +1,8 @@
-# Prepend to _c_wrapper.py, replacing any existing _load_c_library and _lib initialization
 import ctypes
-import importlib
-import platform # Keep platform if used for other things, like existing type defs
-import os # Keep os for other uses if any (though new loader doesn't use it)
+import importlib # Keep for now, though new loader might not use it.
+import platform
+import os
+import ctypes.util # Added for find_library
 
 _lib = None
 
@@ -11,50 +11,121 @@ def _load_c_library():
     if _lib is not None: # Already loaded
         return _lib
 
-    extension_module_name = "pyobuparse._obuparse_c"
-    lib_path_for_error = 'unknown'
+    lib_name_base = "_obuparse_c_lib" # Matches the name in setup(libraries=...)
+    lib_path = None
+    loaded_from_path = None # For error messages
 
-    try:
-        module = importlib.import_module(extension_module_name)
-        lib_path_for_error = module.__file__ # Path to the .so/.dll/.dylib file
-        _lib = ctypes.CDLL(lib_path_for_error)
-        return _lib
-    except ImportError as e:
-        # This can happen if the C extension is not compiled or not in the PYTHONPATH
-        print(f"CRITICAL: Failed to import C extension module '{extension_module_name}'. {e}")
-        print("Ensure the pyobuparse package is compiled and installed correctly.")
-    except OSError as e:
-        # This can happen if the file at lib_path is not a valid library or has missing dependencies
-        print(f"CRITICAL: Failed to load C library via CDLL from path '{lib_path_for_error}'. {e}")
-    except Exception as e:
-        # Catch any other unexpected errors during loading
-        print(f"CRITICAL: An unexpected error occurred during C library loading: {e}")
+    # Determine platform-specific library name variations
+    system = platform.system()
+    if system == "Windows":
+        # Expected name: _obuparse_c_lib.dll
+        # find_library might also find it as "lib_obuparse_c_lib" or "_obuparse_c_lib"
+        lib_actual_names = [f"{lib_name_base}.dll", f"lib{lib_name_base}.dll"]
+    elif system == "Darwin": # macOS
+        # Expected name: lib_obuparse_c_lib.dylib
+        lib_actual_names = [f"lib{lib_name_base}.dylib"]
+    else: # Linux and other POSIX
+        # Expected name: lib_obuparse_c_lib.so
+        lib_actual_names = [f"lib{lib_name_base}.so"]
+
+    # Search strategy:
+    # 1. Next to this _c_wrapper.py file (common for editable installs or if copied by build_clib customization)
+    # 2. In standard library locations searched by ctypes.util.find_library
+    # 3. Potentially in build directories (more complex, requires knowledge of setuptools layout)
+
+    search_paths = []
     
+    # Path 1: Directory of this _c_wrapper.py file
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        search_paths.append(current_dir)
+    except NameError: # __file__ might not be defined in some contexts (e.g. direct exec)
+        pass
+
+    # Path 2: One level up from current_dir (e.g. if _c_wrapper is in src/pyobuparse and lib is in src/)
+    if current_dir:
+        search_paths.append(os.path.abspath(os.path.join(current_dir, "..")))
+    
+    # Path 3: project root for local development (pyobuparse/src/pyobuparse -> pyobuparse/)
+    if current_dir:
+         search_paths.append(os.path.abspath(os.path.join(current_dir, "..", "..")))
+
+
+    for path_dir in search_paths:
+        for name_variant in lib_actual_names:
+            candidate_path = os.path.join(path_dir, name_variant)
+            if os.path.exists(candidate_path):
+                try:
+                    _lib = ctypes.CDLL(candidate_path)
+                    loaded_from_path = candidate_path
+                    return _lib
+                except OSError: # Library found but could not be loaded (e.g. wrong arch)
+                    print(f"INFO: Found library at '{candidate_path}' but failed to load it.")
+                    # Continue searching, maybe another variant will work
+                    _lib = None 
+    
+    # Attempt 2: Use ctypes.util.find_library (searches system paths)
+    # find_library typically expects the base name without "lib" prefix or suffix on some platforms.
+    # On Linux, it often needs the "lib" prefix.
+    find_name_variants = [lib_name_base]
+    if system == "Linux": # Or other POSIX where 'lib' prefix is common for find_library
+        find_name_variants.append(f"lib{lib_name_base}")
+    
+    for name_to_find in find_name_variants:
+        found_by_util = ctypes.util.find_library(name_to_find)
+        if found_by_util:
+            # find_library can return just the name, or a full path.
+            # If just name, CDLL will search default paths. If full path, CDLL uses it.
+            try:
+                _lib = ctypes.CDLL(found_by_util)
+                loaded_from_path = found_by_util
+                return _lib
+            except OSError:
+                print(f"INFO: Found library via find_library ('{found_by_util}') but failed to load it.")
+                _lib = None
+
+    # Fallback for the old extension module name (if it was built that way previously)
+    # This is less likely with the new setup.py but can be a last resort during transition.
+    try:
+        extension_module_name = "pyobuparse._obuparse_c"
+        module = importlib.import_module(extension_module_name)
+        if hasattr(module, '__file__') and module.__file__:
+            _lib = ctypes.CDLL(module.__file__)
+            loaded_from_path = module.__file__
+            print(f"INFO: Loaded library via fallback to extension module path: {loaded_from_path}")
+            return _lib
+    except (ImportError, OSError, AttributeError): # AttributeError for module.__file__
+        pass # Silently ignore if fallback fails
+
+    if not _lib:
+        print(f"CRITICAL: C library '{lib_name_base}' (variants: {lib_actual_names}) not found or could not be loaded.")
+        print(f"  Searched paths: {search_paths}")
+        print(f"  Also tried ctypes.util.find_library with: {find_name_variants}")
+        print("  Ensure the pyobuparse C library is compiled and accessible (e.g., via build_clib and in PYTHONPATH/system library paths).")
+
     return None # _lib remains None if any error occurred
 
 _lib = _load_c_library()
 
-
-# C type definitions (These are fine, do not depend on _lib)
+# C type definitions
 c_uint8_t = ctypes.c_uint8
 c_size_t = ctypes.c_size_t
-c_ptrdiff_t = ctypes.c_ptrdiff_t
 c_uint32_t = ctypes.c_uint32
 c_uint64_t = ctypes.c_uint64
-c_int_t = ctypes.c_int # For OBPOBUType and other general int usage
+c_int_t = ctypes.c_int 
 c_uint16_t = ctypes.c_uint16
 c_int8_t = ctypes.c_int8
 c_int16_t = ctypes.c_int16
 c_bool = ctypes.c_bool
 
-# OBPError struct definition (Fine, does not depend on _lib)
+# OBPError struct definition
 class OBPError(ctypes.Structure):
     _fields_ = [
         ("error", ctypes.c_char_p),
         ("size", c_size_t),
     ]
 
-# --- Enum Constants --- (Fine, do not depend on _lib)
+# --- Enum Constants --- 
 OBP_OBU_SEQUENCE_HEADER = 1
 OBP_OBU_TEMPORAL_DELIMITER = 2
 OBP_OBU_FRAME_HEADER = 3
@@ -63,7 +134,7 @@ OBP_OBU_FRAME = 5
 OBP_OBU_REDUNDANT_FRAME_HEADER = 6
 OBP_OBU_TILE_LIST = 7
 OBP_OBU_PADDING = 15
-
+# ... (rest of enum constants are unchanged) ...
 OBP_METADATA_TYPE_HDR_CLL = 1
 OBP_METADATA_TYPE_HDR_MDCV = 2
 OBP_METADATA_TYPE_SCALABILITY = 3
@@ -73,7 +144,6 @@ OBP_METADATA_TYPE_UNREGISTERED = 6
 
 OBP_COLOR_PRIMARIES_BT_709 = 1
 OBP_COLOR_PRIMARIES_BT_UNSPECIFIED = 2
-# ... (all other enum constants remain as they were, they are fine) ...
 OBP_COLOR_PRIMARIES_BT_470_M = 4
 OBP_COLOR_PRIMARIES_BT_470_B_G = 5
 OBP_COLOR_PRIMARIES_BT_601 = 6
@@ -127,8 +197,8 @@ OBP_FRAME_TYPE_INTER_FRAME = 1
 OBP_FRAME_TYPE_INTRA_ONLY_FRAME = 2
 OBP_FRAME_TYPE_SWITCH_FRAME = 3
 
-
-# --- Nested C Structs --- (Fine, do not depend on _lib)
+# --- Nested C Structs ---
+# ... (All struct definitions: OBPTimingInfo, OBPDecoderModelInfo, etc. remain as they were) ...
 class OBPTimingInfo(ctypes.Structure):
     _fields_ = [
         ("num_units_in_display_tick", c_uint32_t),
@@ -144,7 +214,7 @@ class OBPDecoderModelInfo(ctypes.Structure):
         ("buffer_removal_time_length_minus_1", c_uint8_t),
         ("frame_presentation_time_length_minus_1", c_uint8_t),
     ]
-# ... (all other struct definitions: OBPOperatingParametersInfo, OBPColorConfig, etc. remain as they were) ...
+
 class OBPOperatingParametersInfo(ctypes.Structure):
     _fields_ = [
         ("decoder_buffer_delay", c_uint32_t), 
@@ -252,49 +322,11 @@ class OBPLrParams(ctypes.Structure):
         ("lr_uv_shift", c_uint8_t), 
     ]
 
-class OBPGlobalMotionParams(ctypes.Structure): # For a single reference frame
-    _fields_ = [
-        # This definition was problematic in previous steps.
-        # Assuming the C struct OBPGlobalMotionParams is for a SINGLE ref:
-        ("gm_type", c_uint8_t), 
-        ("gm_params", c_int32_t * 6),
-    ]
-    # If the C struct was `OBPGlobalMotionParams { OBPGlobalMotionParamsForRef params[8]; }`
-    # then the Python side would be more complex.
-    # The current definition of OBPGlobalMotionParams in _c_wrapper.py is:
-    # class OBPGlobalMotionParams(ctypes.Structure):
-    #    _fields_ = [
-    #        ("gm_type", c_uint8_t * 8), # This holds types for ALL refs
-    #        ("gm_params", (c_int32_t * 8) * 6), # This holds params for ALL refs
-    #    ]
-    # And then OBPFrameHeader has:
-    # ("global_motion_params", OBPGlobalMotionParams * 8) # Array of 8 of the above, which is wrong.
-    # For now, I will keep the existing OBPGlobalMotionParams structure as defined previously
-    # in this file, as changing it here might break parser.py's assumptions.
-    # The task is to add guards, not redesign structs here.
-    # The existing struct was:
-# class OBPGlobalMotionParams(ctypes.Structure): # This was the problematic one
-#     _fields_ = [
-#         ("gm_type", c_uint8_t * 8), 
-#         ("gm_params", (c_int32_t * 8) * 6),
-#     ]
-# This should be for a single ref, and OBPFrameHeader has an array of these.
-# Let's assume the C definition matches the intent that OBPFrameHeader has an array of params,
-# so OBPGlobalMotionParams is for ONE ref.
-# The previous version of _c_wrapper.py had this:
-# class OBPGlobalMotionParams(ctypes.Structure):
-#    _fields_ = [
-#        ("gm_type", c_uint8_t * 8), # TOTAL_REFS_PER_FRAME, 2 bits each ( ισ_IDENTITY, etc.)
-#        ("gm_params", (c_int32_t * 8) * 6), # [TOTAL_REFS_PER_FRAME][6], for matrix
-#    ]
-# And OBPFrameHeader used `OBPGlobalMotionParams * 8`. This is indeed confusing.
-# I will retain the definition of OBPGlobalMotionParams as it was in the file given to me:
 class OBPGlobalMotionParams(ctypes.Structure):
     _fields_ = [
         ("gm_type", c_uint8_t * 8), 
         ("gm_params", (c_int32_t * 8) * 6),
     ]
-
 
 class OBPTileListEntry(ctypes.Structure):
     _fields_ = [
@@ -366,7 +398,7 @@ class OBPMetadataUnregistered(ctypes.Structure):
         ("payload", ctypes.POINTER(c_uint8_t)),
     ]
 
-# --- Main C Structs --- (Fine, do not depend on _lib)
+# --- Main C Structs ---
 class OBPFilmGrainParameters(ctypes.Structure):
     _fields_ = [
         ("apply_grain", c_uint8_t), ("grain_seed", c_uint16_t),
@@ -439,7 +471,7 @@ class OBPFrameHeader(ctypes.Structure):
         ("cdef_params", OBPCdefParams), ("lr_params", OBPLrParams),
         ("skip_mode_present", c_uint8_t), ("reference_select", c_uint8_t),
         ("allow_warped_motion", c_uint8_t), ("reduced_tx_set", c_uint8_t),
-        ("global_motion_params", OBPGlobalMotionParams * 8), # Array of 8 of the (problematic) OBPGlobalMotionParams
+        ("global_motion_params", OBPGlobalMotionParams * 8), 
         ("film_grain_params", OBPFilmGrainParameters), ("large_scale_tile", c_uint8_t),
     ]
 
@@ -472,7 +504,7 @@ class OBPState(ctypes.Structure):
         ("RefFrameType", OBPFrameType * 8), ("RefValid", c_uint8_t * 8),
         ("ref_frame_sign_bias", c_int_t * 7), ("OrderHints", c_uint32_t * 8),
         ("RefFrameId", c_uint32_t * 7), ("current_frame_id", c_int_t),
-        ("PrevGmParams", OBPGlobalMotionParams * 8), # Array of 8 of the (problematic) OBPGlobalMotionParams
+        ("PrevGmParams", OBPGlobalMotionParams * 8), 
         ("PrevFilmGrainParams", OBPFilmGrainParameters),
         ("RefOrderHint", c_uint32_t * 7), ("active_ref_idx", c_int_t * 7),
         ("RefFrameWidth", c_int_t * 8), ("RefFrameHeight", c_int_t * 8),
@@ -488,20 +520,18 @@ class OBPState(ctypes.Structure):
     ]
 
 # --- Function Signatures ---
-# Guard all _lib.func.argtypes and _lib.func.restype assignments
+# (Function signature definitions remain the same as the previous version,
+#  including the use of ctypes.c_ssize_t for obu_offset in obp_get_next_obu.argtypes)
 if _lib:
-    # obp_get_next_obu
-    # The subtask description says obp_get_next_obu in C takes 9 args (including spatial_id)
-    # The previous _c_wrapper.py had 8 args. I will assume 9 args is the target.
     _lib.obp_get_next_obu.argtypes = [
         ctypes.POINTER(c_uint8_t),    # data
         c_size_t,                     # data_size
         ctypes.POINTER(c_int_t),      # obu_type
-        ctypes.POINTER(c_ptrdiff_t),  # obu_offset (header size)
+        ctypes.POINTER(ctypes.c_ssize_t), # obu_offset (header size)
         ctypes.POINTER(c_size_t),     # obu_size (payload size)
         ctypes.POINTER(c_int_t),      # obu_has_size_field
         ctypes.POINTER(c_int_t),      # temporal_id
-        ctypes.POINTER(c_int_t),      # spatial_id <--- Added based on current subtask instructions
+        ctypes.POINTER(c_int_t),      # spatial_id
         ctypes.POINTER(OBPError)      # error_out
     ]
     _lib.obp_get_next_obu.restype = c_int_t
@@ -557,14 +587,13 @@ if _lib:
         _lib.obp_free_error_string.restype = None
 else:
     print("Warning: obuparse C library not loaded. OBU parsing functions in _c_wrapper will not be configured.")
-    # Define dummy functions if library is not loaded, so parser.py can import them without NameError
-    # (though calls will fail, which parser.py already checks with `if not _c_wrapper._lib:`)
     def _dummy_func_factory(name):
         def _dummy_func(*args, **kwargs):
             raise OSError(f"C library not loaded. Cannot call {name}.")
         return _dummy_func
 
     obp_get_next_obu = _dummy_func_factory("obp_get_next_obu")
+    # ... (dummy functions for all other parsing functions remain the same)
     obp_parse_sequence_header = _dummy_func_factory("obp_parse_sequence_header")
     obp_parse_frame_header = _dummy_func_factory("obp_parse_frame_header")
     obp_parse_frame = _dummy_func_factory("obp_parse_frame")
@@ -581,6 +610,7 @@ def free_obp_error_string(error_struct_instance: OBPError):
         error_struct_instance.error = None 
         error_struct_instance.size = 0
 
+# __all__ list remains the same as the previous version, which already excluded c_ptrdiff_t.
 __all__ = [
     "OBPError", "free_obp_error_string",
     "OBP_OBU_SEQUENCE_HEADER", "OBP_OBU_TEMPORAL_DELIMITER", "OBP_OBU_FRAME_HEADER",
@@ -588,7 +618,7 @@ __all__ = [
     "OBP_OBU_TILE_LIST", "OBP_OBU_PADDING",
     "OBP_METADATA_TYPE_HDR_CLL", "OBP_METADATA_TYPE_HDR_MDCV", "OBP_METADATA_TYPE_SCALABILITY",
     "OBP_METADATA_TYPE_ITUT_T35", "OBP_METADATA_TYPE_TIMECODE", "OBP_METADATA_TYPE_UNREGISTERED",
-    "OBP_COLOR_PRIMARIES_BT_709", # (and other color/transfer/matrix constants)
+    "OBP_COLOR_PRIMARIES_BT_709", 
     "OBP_COLOR_PRIMARIES_BT_UNSPECIFIED", "OBP_COLOR_PRIMARIES_BT_470_M",
     "OBP_COLOR_PRIMARIES_BT_470_B_G", "OBP_COLOR_PRIMARIES_BT_601", "OBP_COLOR_PRIMARIES_SMPTE_240",
     "OBP_COLOR_PRIMARIES_GENERIC_FILM", "OBP_COLOR_PRIMARIES_BT_2020", "OBP_COLOR_PRIMARIES_XYZ",
@@ -609,7 +639,8 @@ __all__ = [
     "OBP_MATRIX_COEFFICIENTS_CHROMAT_NCL", "OBP_MATRIX_COEFFICIENTS_CHROMAT_CL", "OBP_MATRIX_COEFFICIENTS_ICTCP",
     "OBP_CHROMA_SAMPLE_POSITION_UNKNOWN", "OBP_CHROMA_SAMPLE_POSITION_VERTICAL", "OBP_CHROMA_SAMPLE_POSITION_COLOCATED",
     "OBP_FRAME_TYPE_KEY_FRAME", "OBP_FRAME_TYPE_INTER_FRAME", "OBP_FRAME_TYPE_INTRA_ONLY_FRAME", "OBP_FRAME_TYPE_SWITCH_FRAME",
-    "c_uint8_t", "c_size_t", "c_ptrdiff_t", "c_uint32_t", "c_uint64_t", "c_int_t", "c_uint16_t", "c_int8_t", "c_int16_t", "c_bool",
+    "c_uint8_t", "c_size_t",
+    "c_uint32_t", "c_uint64_t", "c_int_t", "c_uint16_t", "c_int8_t", "c_int16_t", "c_bool",
     "OBPTimingInfo", "OBPDecoderModelInfo", "OBPOperatingParametersInfo", "OBPColorConfig",
     "OBPSuperresParams", "OBPInterpolationFilter", "OBPTileInfo", "OBPQuantizationParams",
     "OBPSegmentationParams", "OBPDeltaQParams", "OBPDeltaLFParams", "OBPLoopFilterParams",

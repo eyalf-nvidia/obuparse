@@ -23,6 +23,28 @@ This wrapper uses `ctypes` to interface with the compiled C library, offering ac
 *   Python 3.7+
 *   A C compiler (GCC, Clang, MSVC) to build the bundled `obuparse` C library during installation. Standard build tools (`make`, etc.) are not strictly required for installation via pip, as setuptools handles the C extension build.
 
+## Setting up a Virtual Environment (Recommended)
+
+Before installing `pyobuparse` and its dependencies, it's highly recommended to create and activate a Python virtual environment. This isolates the project's dependencies from your global Python installation.
+
+1.  **Create a virtual environment:**
+    Open your terminal in the `pyobuparse` project directory and run:
+    ```bash
+    python -m venv .venv
+    ```
+    (You can replace `.venv` with your preferred environment name).
+
+2.  **Activate the virtual environment:**
+    *   On Windows (Command Prompt/PowerShell):
+        ```bash
+        .venv\Scripts\activate
+        ```
+    *   On macOS and Linux (bash/zsh):
+        ```bash
+        source .venv/bin/activate
+        ```
+    Your terminal prompt should change to indicate that the virtual environment is active.
+
 ## Installation
 
 ### From PyPI (Once Published)
@@ -105,7 +127,11 @@ The package uses `setuptools` to build the C extension. When you run `pip instal
 *   On Debian/Ubuntu: `sudo apt-get install build-essential python3-dev`
 *   On Fedora: `sudo yum groupinstall "Development Tools" && sudo yum install python3-devel`
 *   On macOS: Xcode Command Line Tools (includes Clang)
-*   On Windows: MSVC (Visual Studio Build Tools)
+*   On Windows: MSVC (Visual Studio Build Tools) are required. Ensure they are installed and correctly configured for command-line builds. The `pip install .` command should then be able to compile the C library.
+
+### A Note on C Compiler Warnings
+
+When building on Windows using MSVC, you may observe several `C4244` warnings related to data type conversions (e.g., `'=': conversion from 'uint64_t' to 'int', possible loss of data`). These warnings originate from the bundled `obuparse.c` library. While the Python wrapper aims to function correctly, these warnings indicate potential areas in the C code where data precision *could* be lost if extremely large numerical values are encountered that exceed the capacity of the smaller target types. For typical OBU parsing scenarios, these may not impact functionality, but users performing in-depth analysis or working with unusual AV1 streams should be aware of them. Addressing these warnings would require modifications to the underlying `obuparse.c` code.
 
 ## Running Tests
 
