@@ -12,12 +12,12 @@ c_uint32_t = ctypes.c_uint32
 c_uint64_t = ctypes.c_uint64
 c_int8_t = ctypes.c_int8
 c_int16_t = ctypes.c_int16
-c_int32_t = ctypes.c_int32 # Added: was missing, caused NameError for OBPGlobalMotionParams
-c_int64_t = ctypes.c_int64 # Added: for completeness
+c_int32_t = ctypes.c_int32 
+c_int64_t = ctypes.c_int64 
 c_size_t = ctypes.c_size_t
-c_ssize_t = ctypes.c_ssize_t # For ptrdiff_t or other signed size types
+c_ssize_t = ctypes.c_ssize_t 
 c_char_p = ctypes.c_char_p
-c_bool = ctypes.c_bool # Already present but good to group here
+c_bool = ctypes.c_bool 
 
 _lib = None
 
@@ -39,7 +39,7 @@ def _load_c_library():
         lib_actual_names = [f"lib{lib_name_base}.so"]
 
     search_paths = []
-    current_dir = None # Initialize current_dir
+    current_dir = None 
     try:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         search_paths.append(current_dir)
@@ -101,8 +101,8 @@ _lib = _load_c_library()
 # OBPError struct definition
 class OBPError(ctypes.Structure):
     _fields_ = [
-        ("error", c_char_p), # Uses new alias
-        ("size", c_size_t),  # Uses new alias
+        ("error", c_char_p), 
+        ("size", c_size_t),  
     ]
 
 # --- Enum Constants --- 
@@ -301,10 +301,10 @@ class OBPLrParams(ctypes.Structure):
         ("lr_uv_shift", c_uint8_t), 
     ]
 
-class OBPGlobalMotionParams(ctypes.Structure): # Definition from previous state of the file
+class OBPGlobalMotionParams(ctypes.Structure): 
     _fields_ = [
         ("gm_type", c_uint8_t * 8), 
-        ("gm_params", (c_int32_t * 8) * 6), # Uses c_int32_t
+        ("gm_params", (c_int32_t * 8) * 6), 
     ]
 
 class OBPTileListEntry(ctypes.Structure):
@@ -367,7 +367,7 @@ class OBPMetadataTimecode(ctypes.Structure):
         ("minutes_flag", c_uint8_t),
         ("hours_flag", c_uint8_t), 
         ("time_offset_length", c_uint8_t),
-        ("time_offset_value", c_int32_t), # Uses c_int32_t
+        ("time_offset_value", c_int32_t), 
     ]
 
 class OBPMetadataUnregistered(ctypes.Structure):
@@ -480,36 +480,50 @@ class OBPMetadata(ctypes.Structure):
 
 class OBPState(ctypes.Structure):
     _fields_ = [
-        ("RefFrameType", OBPFrameType * 8), ("RefValid", c_uint8_t * 8),
-        ("ref_frame_sign_bias", c_int_t * 7), ("OrderHints", c_uint32_t * 8),
-        ("RefFrameId", c_uint32_t * 7), ("current_frame_id", c_int_t),
+        ("RefFrameType", c_int_t * 8), # MODIFIED: Was OBPFrameType * 8
+        ("RefValid", c_uint8_t * 8),
+        ("ref_frame_sign_bias", c_int_t * 7), 
+        ("OrderHints", c_uint32_t * 8),
+        ("RefFrameId", c_uint32_t * 7), 
+        ("current_frame_id", c_int_t),
         ("PrevGmParams", OBPGlobalMotionParams * 8), 
         ("PrevFilmGrainParams", OBPFilmGrainParameters),
-        ("RefOrderHint", c_uint32_t * 7), ("active_ref_idx", c_int_t * 7),
-        ("RefFrameWidth", c_int_t * 8), ("RefFrameHeight", c_int_t * 8),
-        ("RefMiCols", c_int_t * 8), ("RefMiRows", c_int_t * 8),
-        ("RefUpscaledWidth", c_int_t * 8), ("RefSubsamplingX", c_int_t * 8),
-        ("RefSubsamplingY", c_int_t * 8), ("FrameIsIntra", c_bool * 8),
-        ("error_resilient_mode", c_uint8_t), ("large_scale_tile", c_uint8_t),
-        ("primary_ref_frame", c_uint8_t), ("disable_cdf_update", c_uint8_t),
-        ("allow_screen_content_tools", c_uint8_t), ("force_integer_mv", c_uint8_t),
-        ("coded_lossless", c_uint8_t), ("all_lossless", c_uint8_t),
-        ("delta_q_present_flag", c_uint8_t), ("prev_segment_ids", c_uint8_t * (64*64)),
-        ("last_active_seg_id", c_uint8_t), ("seg_feature_active", c_bool * (8*4)),
+        ("RefOrderHint", c_uint32_t * 7), 
+        ("active_ref_idx", c_int_t * 7),
+        ("RefFrameWidth", c_int_t * 8), 
+        ("RefFrameHeight", c_int_t * 8),
+        ("RefMiCols", c_int_t * 8), 
+        ("RefMiRows", c_int_t * 8),
+        ("RefUpscaledWidth", c_int_t * 8), 
+        ("RefSubsamplingX", c_int_t * 8),
+        ("RefSubsamplingY", c_int_t * 8), 
+        ("FrameIsIntra", c_bool * 8),
+        ("error_resilient_mode", c_uint8_t), 
+        ("large_scale_tile", c_uint8_t),
+        ("primary_ref_frame", c_uint8_t), 
+        ("disable_cdf_update", c_uint8_t),
+        ("allow_screen_content_tools", c_uint8_t), 
+        ("force_integer_mv", c_uint8_t),
+        ("coded_lossless", c_uint8_t), 
+        ("all_lossless", c_uint8_t),
+        ("delta_q_present_flag", c_uint8_t), 
+        ("prev_segment_ids", c_uint8_t * (64*64)),
+        ("last_active_seg_id", c_uint8_t), 
+        ("seg_feature_active", c_bool * (8*4)),
     ]
 
 # --- Function Signatures ---
 if _lib:
     _lib.obp_get_next_obu.argtypes = [
-        ctypes.POINTER(c_uint8_t),    # data
-        c_size_t,                     # data_size
-        ctypes.POINTER(c_int_t),      # obu_type
-        ctypes.POINTER(c_ssize_t),    # MODIFIED: obu_offset (header size) - uses new c_ssize_t alias
-        ctypes.POINTER(c_size_t),     # obu_size (payload size)
-        ctypes.POINTER(c_int_t),      # obu_has_size_field
-        ctypes.POINTER(c_int_t),      # temporal_id
-        ctypes.POINTER(c_int_t),      # spatial_id
-        ctypes.POINTER(OBPError)      # error_out
+        ctypes.POINTER(c_uint8_t),    
+        c_size_t,                     
+        ctypes.POINTER(c_int_t),      
+        ctypes.POINTER(c_ssize_t),    
+        ctypes.POINTER(c_size_t),     
+        ctypes.POINTER(c_int_t),      
+        ctypes.POINTER(c_int_t),      
+        ctypes.POINTER(c_int_t),      
+        ctypes.POINTER(OBPError)      
     ]
     _lib.obp_get_next_obu.restype = c_int_t
 
@@ -614,11 +628,9 @@ __all__ = [
     "OBP_MATRIX_COEFFICIENTS_CHROMAT_NCL", "OBP_MATRIX_COEFFICIENTS_CHROMAT_CL", "OBP_MATRIX_COEFFICIENTS_ICTCP",
     "OBP_CHROMA_SAMPLE_POSITION_UNKNOWN", "OBP_CHROMA_SAMPLE_POSITION_VERTICAL", "OBP_CHROMA_SAMPLE_POSITION_COLOCATED",
     "OBP_FRAME_TYPE_KEY_FRAME", "OBP_FRAME_TYPE_INTER_FRAME", "OBP_FRAME_TYPE_INTRA_ONLY_FRAME", "OBP_FRAME_TYPE_SWITCH_FRAME",
-    # Standard CTypes aliases now exported:
     "c_int_t", "c_uint8_t", "c_uint16_t", "c_uint32_t", "c_uint64_t",
     "c_int8_t", "c_int16_t", "c_int32_t", "c_int64_t",
     "c_size_t", "c_ssize_t", "c_char_p", "c_bool",
-    # Structs
     "OBPTimingInfo", "OBPDecoderModelInfo", "OBPOperatingParametersInfo", "OBPColorConfig",
     "OBPSuperresParams", "OBPInterpolationFilter", "OBPTileInfo", "OBPQuantizationParams",
     "OBPSegmentationParams", "OBPDeltaQParams", "OBPDeltaLFParams", "OBPLoopFilterParams",
@@ -627,7 +639,6 @@ __all__ = [
     "OBPScalabilityStructure", "OBPMetadataScalability", "OBPMetadataTimecode", "OBPMetadataUnregistered",
     "OBPFilmGrainParameters", "OBPSequenceHeader", "OBPFrameHeader", "OBPTileGroup",
     "OBPTileList", "OBPMetadata", "OBPState",
-    # Functions
     "obp_get_next_obu", "obp_parse_sequence_header", "obp_parse_frame_header",
     "obp_parse_frame", "obp_parse_tile_group", "obp_parse_metadata", "obp_parse_tile_list",
     "obp_state_init",
