@@ -809,27 +809,31 @@ def iter_obus(data: bytes):
         
         err_struct = _c_wrapper.OBPError()
 
-        buffer_slice_ptr = ctypes.cast(ctypes.byref(ctypes.c_char.from_buffer(data, current_pos)), 
-                                      ctypes.POINTER(_c_wrapper.c_uint8_t))
-        remaining_data_size = data_len - current_pos
+        # Get the current slice of data.
+        current_data_slice_bytes = data[current_pos:]
+        remaining_data_size = len(current_data_slice_bytes)
+
+        # If there's no data left, stop.
+        if remaining_data_size == 0:
+            break
+
+        # Cast the current data slice to the POINTER(c_uint8_t) type expected by the C function.
+        # This is how other parsing functions in this file prepare their data pointers.
+        input_buffer_ptr = ctypes.cast(current_data_slice_bytes, ctypes.POINTER(_c_wrapper.c_uint8_t))
 
         if takes_spatial_id_arg:
              ret_code = c_lib.obp_get_next_obu(
-                buffer_slice_ptr, remaining_data_size,
+                input_buffer_ptr, remaining_data_size,
                 ctypes.byref(obu_type_cval), ctypes.byref(obu_offset_cval),
                 ctypes.byref(obu_size_cval), ctypes.byref(obu_has_size_field_cval),
                 ctypes.byref(temporal_id_cval), ctypes.byref(spatial_id_cval), # Pass spatial_id
                 ctypes.byref(err_struct)
             )
         else: # Fallback if _c_wrapper.py's obp_get_next_obu is old (8 args)
-            # This path should ideally not be needed if _c_wrapper is correctly updated.
-            # Forcing an error or logging a warning might be better.
-            # For now, call the 8-arg version and spatial_id remains 0.
-            # This part should be removed once _c_wrapper.py is confirmed to have spatial_id.
             temp_argtypes = c_lib.obp_get_next_obu.argtypes
             c_lib.obp_get_next_obu.argtypes = temp_argtypes[:7] + temp_argtypes[8:] # Remove spatial_id arg
             ret_code = c_lib.obp_get_next_obu(
-                buffer_slice_ptr, remaining_data_size,
+                input_buffer_ptr, remaining_data_size,
                 ctypes.byref(obu_type_cval), ctypes.byref(obu_offset_cval),
                 ctypes.byref(obu_size_cval), ctypes.byref(obu_has_size_field_cval),
                 ctypes.byref(temporal_id_cval), # No spatial_id here

@@ -15,9 +15,15 @@ c_int16_t = ctypes.c_int16
 c_int32_t = ctypes.c_int32 
 c_int64_t = ctypes.c_int64 
 c_size_t = ctypes.c_size_t
-c_ssize_t = ctypes.c_ssize_t 
+c_ssize_t = ctypes.c_ssize_t
+if hasattr(ctypes, 'c_ptrdiff_t'):
+    c_ptrdiff_t = ctypes.c_ptrdiff_t
+else:
+    # Fallback for older Python versions or environments where c_ptrdiff_t might be missing
+    # c_ssize_t is often a suitable equivalent for ptrdiff_t
+    c_ptrdiff_t = ctypes.c_ssize_t
 c_char_p = ctypes.c_char_p
-c_bool = ctypes.c_bool 
+c_bool = ctypes.c_bool
 
 _lib = None
 
@@ -26,10 +32,30 @@ def _load_c_library():
     if _lib is not None: 
         return _lib
 
-    lib_name_base = "_obuparse_c_lib" 
-    lib_path = None
-    loaded_from_path = None 
+    loaded_from_path = None
+    lib_name_base = "_obuparse_c_lib" # Used for fallback messages
 
+    # --- Primary Method: Load via importlib (Python Extension) ---
+    try:
+        extension_module_name = "pyobuparse._obuparse_c"
+        print(f"INFO: Attempting to load C extension '{extension_module_name}' via importlib...")
+        module = importlib.import_module(extension_module_name)
+        if hasattr(module, '__file__') and module.__file__:
+            _lib = ctypes.CDLL(module.__file__)
+            loaded_from_path = module.__file__
+            print(f"INFO: Successfully loaded C extension from: {loaded_from_path}")
+            return _lib
+        else:
+            print(f"WARNING: Imported module '{extension_module_name}' but it has no '__file__' attribute.")
+    except ImportError:
+        print(f"INFO: C extension module '{extension_module_name}' not found via importlib. Will try fallback methods.")
+    except OSError as e:
+        print(f"INFO: OSError when trying to load C extension '{extension_module_name}' via importlib: {e}. Will try fallback methods.")
+    except AttributeError: # Can happen if module is already loaded or other exotic issues
+        print(f"INFO: AttributeError when trying to load C extension '{extension_module_name}' (possibly already loaded or other issue). Will try fallback methods.")
+
+    # --- Fallback Method 1: Search predefined paths for specific library names ---
+    print("INFO: Fallback: Trying to load library by searching predefined paths for specific library names...")
     system = platform.system()
     if system == "Windows":
         lib_actual_names = [f"{lib_name_base}.dll", f"lib{lib_name_base}.dll"]
@@ -44,9 +70,10 @@ def _load_c_library():
         current_dir = os.path.dirname(os.path.abspath(__file__))
         search_paths.append(current_dir)
     except NameError: 
-        pass
+        pass # __file__ not defined, e.g. in interactive interpreter
 
     if current_dir:
+        # Add parent and grandparent directories to search path for library
         search_paths.append(os.path.abspath(os.path.join(current_dir, "..")))
         search_paths.append(os.path.abspath(os.path.join(current_dir, "..", "..")))
 
@@ -57,13 +84,19 @@ def _load_c_library():
                 try:
                     _lib = ctypes.CDLL(candidate_path)
                     loaded_from_path = candidate_path
+                    print(f"INFO: Fallback: Successfully loaded library from: {loaded_from_path}")
                     return _lib
                 except OSError: 
-                    print(f"INFO: Found library at '{candidate_path}' but failed to load it.")
-                    _lib = None 
+                    print(f"INFO: Fallback: Found library at '{candidate_path}' but failed to load it.")
+                    _lib = None # Reset _lib on failure to allow other methods to try
     
+    if _lib: # Should not happen if logic is correct, but as a safeguard
+        return _lib
+
+    # --- Fallback Method 2: ctypes.util.find_library ---
+    print(f"INFO: Fallback: Trying ctypes.util.find_library...")
     find_name_variants = [lib_name_base]
-    if system == "Linux": 
+    if platform.system() == "Linux": # On Linux, it might be lib<name>.so
         find_name_variants.append(f"lib{lib_name_base}")
     
     for name_to_find in find_name_variants:
@@ -72,27 +105,21 @@ def _load_c_library():
             try:
                 _lib = ctypes.CDLL(found_by_util)
                 loaded_from_path = found_by_util
+                print(f"INFO: Fallback: Successfully loaded library via find_library: {loaded_from_path} (searched for '{name_to_find}')")
                 return _lib
             except OSError:
-                print(f"INFO: Found library via find_library ('{found_by_util}') but failed to load it.")
-                _lib = None
+                print(f"INFO: Fallback: Found library via find_library ('{found_by_util}' for '{name_to_find}') but failed to load it.")
+                _lib = None # Reset _lib
 
-    try:
-        extension_module_name = "pyobuparse._obuparse_c"
-        module = importlib.import_module(extension_module_name)
-        if hasattr(module, '__file__') and module.__file__:
-            _lib = ctypes.CDLL(module.__file__)
-            loaded_from_path = module.__file__
-            print(f"INFO: Loaded library via fallback to extension module path: {loaded_from_path}")
-            return _lib
-    except (ImportError, OSError, AttributeError): 
-        pass 
-
+    # Final check and error message
     if not _lib:
-        print(f"CRITICAL: C library '{lib_name_base}' (variants: {lib_actual_names}) not found or could not be loaded.")
-        print(f"  Searched paths: {search_paths}")
-        print(f"  Also tried ctypes.util.find_library with: {find_name_variants}")
-        print("  Ensure the pyobuparse C library is compiled and accessible (e.g., via build_clib and in PYTHONPATH/system library paths).")
+        print(f"CRITICAL: C library for 'pyobuparse._obuparse_c' could not be loaded.")
+        print("  Primary attempt was to load the Python C extension via importlib.")
+        print("  Fallback attempts included searching predefined paths and using ctypes.util.find_library.")
+        print(f"  Predefined search paths attempted: {search_paths if search_paths else 'N/A (could not determine script path)'}")
+        print(f"  Names tried with ctypes.util.find_library: {find_name_variants}")
+        print("  Ensure the pyobuparse C library (expected as 'pyobuparse._obuparse_c' extension module) is compiled and accessible.")
+        print("  If you compiled it manually (e.g. with build_clib), ensure it's in a standard system library path or PYTHONPATH.")
 
     return None
 
@@ -630,7 +657,7 @@ __all__ = [
     "OBP_FRAME_TYPE_KEY_FRAME", "OBP_FRAME_TYPE_INTER_FRAME", "OBP_FRAME_TYPE_INTRA_ONLY_FRAME", "OBP_FRAME_TYPE_SWITCH_FRAME",
     "c_int_t", "c_uint8_t", "c_uint16_t", "c_uint32_t", "c_uint64_t",
     "c_int8_t", "c_int16_t", "c_int32_t", "c_int64_t",
-    "c_size_t", "c_ssize_t", "c_char_p", "c_bool",
+    "c_size_t", "c_ssize_t", "c_ptrdiff_t", "c_char_p", "c_bool",
     "OBPTimingInfo", "OBPDecoderModelInfo", "OBPOperatingParametersInfo", "OBPColorConfig",
     "OBPSuperresParams", "OBPInterpolationFilter", "OBPTileInfo", "OBPQuantizationParams",
     "OBPSegmentationParams", "OBPDeltaQParams", "OBPDeltaLFParams", "OBPLoopFilterParams",

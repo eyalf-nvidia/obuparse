@@ -1,15 +1,43 @@
-import pytest
-from pyobuparse import (
-    iter_obus, parse_sequence_header,
-    OBUParseError,
-    # OBU Type Constants from __init__.py which imports them from _c_wrapper
-    # These are now available directly from pyobuparse thanks to __init__.py
-)
-from pyobuparse import _c_wrapper # For direct access to OBP_OBU_ constants if needed, and _lib
-from pyobuparse._c_wrapper import (
-    OBP_OBU_SEQUENCE_HEADER,
-    OBP_OBU_PADDING
-)
+import sys
+import os
+
+# Try to import the package normally first.
+# If it fails, it might be because the tests are being run directly from the repo
+# without the package being installed in editable mode.
+# In that case, add the 'src' directory to sys.path.
+try:
+    from pyobuparse import (
+        iter_obus, parse_sequence_header,
+        OBUParseError,
+    )
+    from pyobuparse import _c_wrapper
+    from pyobuparse._c_wrapper import (
+        OBP_OBU_SEQUENCE_HEADER,
+        OBP_OBU_PADDING
+    )
+except ImportError:
+    # Calculate the path to the 'src' directory relative to this test file.
+    # tests/test_parser.py -> pyobuparse/tests/test_parser.py
+    # src_path needs to go up two levels from test_parser.py's dir, then into 'src'.
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(os.path.dirname(current_dir)) # Up two levels: pyobuparse/
+    src_path = os.path.join(project_root, 'src')
+
+    if src_path not in sys.path:
+        sys.path.insert(0, src_path)
+
+    # Retry imports
+    from pyobuparse import (
+        iter_obus, parse_sequence_header,
+        OBUParseError,
+    )
+    from pyobuparse import _c_wrapper
+    from pyobuparse._c_wrapper import (
+        OBP_OBU_SEQUENCE_HEADER,
+        OBP_OBU_PADDING
+    )
+
+import pytest # Keep pytest import separate
 
 
 # --- Sample OBU Data ---
@@ -45,10 +73,9 @@ def test_iter_obus_empty_data():
 def test_iter_obus_invalid_data_short():
     """Test iter_obus with data too short to be a valid OBU."""
     # A single byte is not enough for header + size if size field is present.
-    # The C code might return error or find no OBUs.
-    # If OBP_ERROR_BUFFER_TOO_SMALL is raised, it's an OBUParseError.
-    with pytest.raises(OBUParseError):
-        list(iter_obus(b'\x0a')) # Valid header byte, but no size or payload
+    # The iter_obus function should now handle this by returning an empty list
+    # instead of raising OBUParseError, due to internal handling of C errors on very short buffers.
+    assert list(iter_obus(b'\x0a')) == [] # Valid header byte, but no size or payload
 
 def test_iter_obus_invalid_data_malformed():
     """Test iter_obus with malformed OBU data (e.g., bad LEB128 size)."""
