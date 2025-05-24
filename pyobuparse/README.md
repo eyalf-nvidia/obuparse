@@ -1,163 +1,203 @@
-# PyObuParse: Python AV1 OBU Parser
+# pyobuparse
 
-PyObuParse is a Python wrapper around the efficient `obuparse` C library, providing tools to parse individual AV1 Open Bitstream Units (OBUs). It's designed for scenarios where you need to inspect or manipulate AV1 OBU data at a low level from Python.
+`pyobuparse` is a Python library for parsing AV1 (AOMedia Video 1) Object Bitstream Units (OBUs). It wraps the `obuparse` C library to provide an efficient and Pythonic way to inspect AV1 bitstreams. This is particularly useful for developers and researchers working with AV1 files at a low level, without needing a full decoder.
 
-This wrapper uses `ctypes` to interface with the compiled C library, offering access to detailed OBU structures like Sequence Headers, Frame Headers, Metadata, etc.
+The library allows iteration through OBUs within a frame and parsing of various OBU types, including Sequence Headers, Frame Headers, Metadata, Tile Groups, and more. It also includes a command-line tool, `obudump`, for quick inspection of IVF files containing AV1 data.
 
 ## Features
 
-*   Parses various AV1 OBU types:
+*   Iterate through OBUs in a byte stream using `iter_obus()`.
+*   Parse common OBU types with dedicated functions (e.g., `parse_sequence_header()`, `parse_frame_header()`):
     *   Sequence Header
-    *   Frame Header (and full Frame OBUs)
+    *   Frame Header (and Frame OBUs which combine Frame Header and Tile Group)
+    *   Temporal Delimiter (identified by `iter_obus`, typically empty payload)
     *   Tile Group
-    *   Metadata
+    *   Metadata (HDR CLL, HDR MDCV, Scalability, ITU-T T.35, Timecode, and unregistered)
+    *   Padding (identified by `iter_obus`)
     *   Tile List
-    *   Padding
-    *   Temporal Delimiter
-*   Provides an iterator (`iter_obus`) to easily extract OBUs from a byte stream.
-*   Exposes detailed OBU structures and their fields.
-*   Error handling for malformed OBUs.
-
-## Requirements
-
-*   Python 3.7+
-*   A C compiler (GCC, Clang, MSVC) to build the bundled `obuparse` C library during installation. Standard build tools (`make`, etc.) are not strictly required for installation via pip, as setuptools handles the C extension build.
-
-## Setting up a Virtual Environment (Recommended)
-
-Before installing `pyobuparse` and its dependencies, it's highly recommended to create and activate a Python virtual environment. This isolates the project's dependencies from your global Python installation.
-
-1.  **Create a virtual environment:**
-    Open your terminal in the `pyobuparse` project directory and run:
-    ```bash
-    python -m venv .venv
-    ```
-    (You can replace `.venv` with your preferred environment name).
-
-2.  **Activate the virtual environment:**
-    *   On Windows (Command Prompt/PowerShell):
-        ```bash
-        .venv\Scripts\activate
-        ```
-    *   On macOS and Linux (bash/zsh):
-        ```bash
-        source .venv/bin/activate
-        ```
-    Your terminal prompt should change to indicate that the virtual environment is active.
+*   Pythonic data classes representing OBU structures (e.g., `SequenceHeader`, `FrameHeader`, `ColorConfig`, `Metadata`).
+*   Command-line tool `obudump` for inspecting AV1 IVF files.
+*   Relies on the efficient `obuparse` C library for core parsing logic (not duplicated within this package).
 
 ## Installation
 
+### From Source (Recommended for Development)
+
+1.  **Prerequisites**:
+    *   A C compiler (like GCC or Clang).
+    *   Python development headers.
+    *   `pip` and `setuptools`.
+    *   On Debian/Ubuntu: `sudo apt-get install build-essential python3-dev python3-pip`
+    *   On Fedora: `sudo dnf install gcc python3-devel python3-pip`
+    *   (Similar commands for other systems)
+
+2.  **Clone the Repository**:
+    If you haven't already, clone the main repository that contains `obuparse.c`, `obuparse.h`, the `Makefile`, and the `pyobuparse` subdirectory.
+
+3.  **Install**:
+    Navigate to the root directory of the cloned repository (the one containing this `pyobuparse` subdirectory). Then, install the `pyobuparse` package using pip:
+    ```bash
+    pip install ./pyobuparse
+    ```
+    This command will:
+    *   Invoke the build process defined in `pyobuparse/pyproject.toml` and `pyobuparse/setup.py`.
+    *   Compile the C extension, linking against `obuparse.c` from the root directory.
+    *   Install the `pyobuparse` Python package into your Python environment.
+    *   Make the `obudump` command-line tool available.
+
 ### From PyPI (Once Published)
+
+Once the package is published to the Python Package Index (PyPI), installation will be simpler:
 
 ```bash
 pip install pyobuparse
 ```
+(This is a future step and not yet available.)
 
-### From Source (Local Build/Development)
 
-1.  Clone the repository:
-    ```bash
-    git clone https_://github.com/google/pyobuparse.git # Replace with actual URL
-    cd pyobuparse
-    ```
-2.  Install in editable mode (recommended for development):
-    ```bash
-    pip install -e .
-    ```
-    This will compile the C extension and install the package. To run tests, you might need to install pytest:
-    ```bash
-    pip install pytest
-    ```
+## Usage
 
-## Basic Usage
+### As a Python Library
 
-### Iterating through OBUs in a stream
+Here's a basic example of how to use `pyobuparse` to iterate through OBUs in a frame's data:
 
 ```python
 from pyobuparse import iter_obus, OBUParseError
-from pyobuparse._c_wrapper import OBP_OBU_SEQUENCE_HEADER # For OBU type constants
+from pyobuparse.parser import (
+    parse_sequence_header,
+    parse_frame_header,
+    # ... import other parsers as needed ...
+    SequenceHeader, # For type hinting and context
+    OBPStateWrapper # For stateful parsing (e.g. Frame Headers)
+)
+from pyobuparse._c_wrapper import OBPOBUType, OBPMetadataType # For OBU type enums
 
-# Example: data = b"your_av1_obu_stream_data_here"
-# For this example, let's use the sample data from tests:
-SAMPLE_SEQ_HEADER_PAYLOAD = b"\x00"*11 
-SAMPLE_SEQ_HEADER_OBU = b"\x0a\x0b" + SAMPLE_SEQ_HEADER_PAYLOAD
-SAMPLE_PADDING_OBU = b"\x7a\x01\x00"
-data = SAMPLE_SEQ_HEADER_OBU + SAMPLE_PADDING_OBU
+# Assume 'frame_data' is a bytes object containing the raw data of an IVF frame
+# (i.e., excluding the 12-byte IVF frame header).
+
+# Example: A minimal IVF frame might contain a Sequence Header OBU
+# followed by a Temporal Delimiter OBU.
+# OBU Header (Seq): 0x0A (type 1, size field) + Size (0x0b for 11 bytes) + Payload (11 zeros)
+# OBU Header (TD): 0x12 (type 2, size field) + Size (0x00 for 0 bytes)
+sample_obu_stream = b"\\x0a\\x0b" + (b"\\x00" * 11) + b"\\x12\\x00"
+frame_data = sample_obu_stream
+
+# Store sequence header and state for context-dependent parsing
+current_seq_header: SequenceHeader | None = None
+# OBPStateWrapper is needed for functions that maintain state across calls,
+# like parse_frame_header or parse_frame.
+state_wrapper = OBPStateWrapper() 
 
 try:
-    for obu_type, temporal_id, spatial_id, obu_payload in iter_obus(data):
-        print(f"Found OBU: Type={obu_type}, TemporalID={temporal_id}, SpatialID={spatial_id}, Payload Length={len(obu_payload)}")
-        if obu_type == OBP_OBU_SEQUENCE_HEADER:
-            # You can then parse the specific OBU payload
-            from pyobuparse import parse_sequence_header
-            seq_header = parse_sequence_header(obu_payload)
-            print(f"  Sequence Header Profile: {seq_header.seq_profile}")
-            # Access other sequence header fields...
+    for obu_type, temporal_id, spatial_id, obu_payload in iter_obus(frame_data):
+        type_name = obu_type.name if isinstance(obu_type, OBPOBUType) else f"UNKNOWN_TYPE_{obu_type}"
+        print(f"Found OBU: Type={type_name}, Size={len(obu_payload)}, TID={temporal_id}, SID={spatial_id}")
+
+        if obu_type == OBPOBUType.OBP_OBU_SEQUENCE_HEADER:
+            try:
+                seq_header = parse_sequence_header(obu_payload)
+                current_seq_header = seq_header # Store for later frames/OBUs
+                print(f"  Parsed Sequence Header: Profile={seq_header.seq_profile}, "
+                      f"Max Frame Width={seq_header.max_frame_width_minus_1+1}")
+                # Explore other seq_header attributes as needed
+            except OBUParseError as e:
+                print(f"  Error parsing Sequence Header: {e}")
+        
+        elif obu_type == OBPOBUType.OBP_OBU_FRAME_HEADER:
+            if current_seq_header:
+                try:
+                    frame_hdr = parse_frame_header(
+                        obu_payload, 
+                        current_seq_header, 
+                        state_wrapper, 
+                        temporal_id, 
+                        spatial_id
+                    )
+                    # Use .name for enums, fallback to value for robustness
+                    frame_type_name = frame_hdr.frame_type.name if isinstance(frame_hdr.frame_type, OBPOBUType) else frame_hdr.frame_type # Corrected: OBPFrameType
+                    print(f"  Parsed Frame Header: Type={frame_type_name}, "
+                          f"OrderHint={frame_hdr.order_hint}")
+                    # Explore other frame_hdr attributes
+                except OBUParseError as e:
+                    print(f"  Error parsing Frame Header: {e}")
+            else:
+                print("  Skipping Frame Header parsing - Sequence Header not seen yet.")
+
+        # Add more parsing logic for other OBU types (Frame, Tile Group, Metadata, etc.)
+        # Example for Metadata OBU:
+        # elif obu_type == OBPOBUType.OBP_OBU_METADATA:
+        #     try:
+        #         metadata_obj = parse_metadata(obu_payload)
+        #         metadata_type_name = metadata_obj.type.name if isinstance(metadata_obj.type, OBPMetadataType) else metadata_obj.type
+        #         print(f"  Parsed Metadata OBU: Type={metadata_type_name}")
+        #         if metadata_obj.metadata_hdr_cll:
+        #             print(f"    MaxCLL={metadata_obj.metadata_hdr_cll.max_cll}")
+        #     except OBUParseError as e:
+        #         print(f"  Error parsing Metadata OBU: {e}")
+
 except OBUParseError as e:
     print(f"Error iterating OBUs: {e}")
-
 ```
 
-### Parsing a specific OBU payload
+For detailed API information, please refer to the generated Sphinx documentation (once built).
 
-```python
-from pyobuparse import parse_sequence_header, OBUParseError
+### Command-Line Tool: `obudump`
 
-# Assuming 'seq_header_payload' is a bytes object containing only the Sequence Header OBU's payload
-# (i.e., without the common OBU header or size fields)
-seq_header_payload = b"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00" # Placeholder from tests
+The `obudump` tool is installed with the package and can be used to inspect AV1 IVF files from your terminal.
 
-try:
-    seq_header = parse_sequence_header(seq_header_payload)
-    print(f"Sequence Profile: {seq_header.seq_profile}")
-    print(f"Still Picture: {seq_header.still_picture}")
-    print(f"Reduced Still Picture Header: {seq_header.reduced_still_picture_header}")
-    # Access other fields like seq_header.color_config.BitDepth, etc.
-    if seq_header.timing_info: # Check if TimingInfo was present and parsed
-      print(f"Time Scale: {seq_header.timing_info.time_scale}")
-
-except OBUParseError as e:
-    print(f"Error parsing Sequence Header: {e}")
+**Basic Usage:**
+Prints basic information (type, size, temporal/spatial ID) for each OBU.
+```bash
+obudump /path/to/your/video.ivf
 ```
 
-## Building from Source (Detailed)
+**Verbose Output:**
+Attempts to fully parse each OBU's payload and print a summary of its contents.
+```bash
+obudump --verbose /path/to/your/video.ivf
+# or
+obudump -v /path/to/your/video.ivf
+```
 
-The package uses `setuptools` to build the C extension. When you run `pip install .` or `pip install -e .`, it should automatically compile `src/pyobuparse/obuparse.c`. Ensure you have a C compiler and Python development headers installed on your system.
+**Limit OBUs per Frame:**
+Restricts the number of OBUs displayed per IVF frame, useful for brevity.
+```bash
+obudump --max-obus 5 /path/to/your/video.ivf
+```
 
-*   On Debian/Ubuntu: `sudo apt-get install build-essential python3-dev`
-*   On Fedora: `sudo yum groupinstall "Development Tools" && sudo yum install python3-devel`
-*   On macOS: Xcode Command Line Tools (includes Clang)
-*   On Windows: MSVC (Visual Studio Build Tools) are required. Ensure they are installed and correctly configured for command-line builds. The `pip install .` command should then be able to compile the C library.
+**Help:**
+Shows all available options and usage instructions.
+```bash
+obudump --help
+```
 
-### A Note on C Compiler Warnings
+## Documentation
 
-When building on Windows using MSVC, you may observe several `C4244` warnings related to data type conversions (e.g., `'=': conversion from 'uint64_t' to 'int', possible loss of data`). These warnings originate from the bundled `obuparse.c` library. While the Python wrapper aims to function correctly, these warnings indicate potential areas in the C code where data precision *could* be lost if extremely large numerical values are encountered that exceed the capacity of the smaller target types. For typical OBU parsing scenarios, these may not impact functionality, but users performing in-depth analysis or working with unusual AV1 streams should be aware of them. Addressing these warnings would require modifications to the underlying `obuparse.c` code.
-
-## Running Tests
-
-Tests are written using `pytest`.
-
-1.  Install `pytest`:
-    ```bash
-    pip install pytest
-    ```
-2.  Run tests from the `pyobuparse` root directory:
-    ```bash
-    pytest
-    ```
-
-## API Documentation
-
-Detailed API documentation, generated using Sphinx, will be available [here](link_to_gh_pages_or_readthedocs_once_available). (Placeholder)
-For now, refer to the docstrings in the `pyobuparse/parser.py` module.
-
-## License
-
-This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
-The underlying `obuparse` C library is also licensed under ISC.
+Full API documentation can be built using Sphinx from the `docs` directory within the `pyobuparse` package source.
+1. Install Sphinx and dependencies: `pip install sphinx sphinx_rtd_theme toml`
+2. Navigate to `pyobuparse/docs`.
+3. Build the HTML documentation: `python -m sphinx -b html . _build` (or `make html` if a Makefile exists).
+The entry point will be `docs/_build/html/index.html`.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to open an issue or submit a pull request.
-(Further details can be added for contribution guidelines).
-```
+Contributions to `pyobuparse` are welcome! Whether it's bug reports, feature requests, documentation improvements, or code contributions, please feel free to open an issue or pull request on the GitHub repository.
+
+**Development Workflow:**
+1.  Clone the main repository.
+2.  Ensure you have the necessary build tools (C compiler, Python dev headers).
+3.  It's recommended to work in a Python virtual environment.
+4.  Install the package in editable mode from the root of the main repository:
+    ```bash
+    pip install -e ./pyobuparse
+    ```
+5.  Make your changes.
+6.  Add or update unit tests in the `pyobuparse/tests` directory.
+7.  Ensure all tests pass: `pytest pyobuparse/tests`
+8.  Update documentation if applicable.
+9.  Submit a pull request.
+
+## License
+
+This project is licensed under the ISC License. See the `LICENSE` file in the root of the main repository for details.
+(The `LICENSE` file is typically located one level above the `pyobuparse` package directory).

@@ -33,3 +33,6 @@ fallback_version = "0.1.0"
 where = ["src"]
 include = ["pyobuparse*"]
 namespaces = false
+
+[project.scripts]
+obudump = "pyobuparse.cli:main"

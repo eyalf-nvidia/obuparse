@@ -11,10 +11,8 @@ try:
         OBUParseError,
     )
     from pyobuparse import _c_wrapper
-    from pyobuparse._c_wrapper import (
-        OBP_OBU_SEQUENCE_HEADER,
-        OBP_OBU_PADDING
-    )
+    # Import the enum itself
+    from pyobuparse._c_wrapper import OBPOBUType
 except ImportError:
     # Calculate the path to the 'src' directory relative to this test file.
     # tests/test_parser.py -> pyobuparse/tests/test_parser.py
@@ -32,10 +30,8 @@ except ImportError:
         OBUParseError,
     )
     from pyobuparse import _c_wrapper
-    from pyobuparse._c_wrapper import (
-        OBP_OBU_SEQUENCE_HEADER,
-        OBP_OBU_PADDING
-    )
+    # Import the enum itself
+    from pyobuparse._c_wrapper import OBPOBUType
 
 import pytest # Keep pytest import separate
 
@@ -89,7 +85,7 @@ def test_iter_obus_valid_stream():
     assert len(obus) == 2
 
     # Check Sequence Header OBU
-    assert obus[0][0] == OBP_OBU_SEQUENCE_HEADER
+    assert obus[0][0] == OBPOBUType.OBP_OBU_SEQUENCE_HEADER
     # obus[0][1] is temporal_id, obus[0][2] is spatial_id.
     # Default C parser may set these to 0 if not present in header extension.
     assert obus[0][1] == 0 # Default temporal_id if not set by OBU header extension
@@ -97,10 +93,22 @@ def test_iter_obus_valid_stream():
     assert obus[0][3] == SAMPLE_SEQ_HEADER_PAYLOAD
 
     # Check Padding OBU
-    assert obus[1][0] == OBP_OBU_PADDING
+    assert obus[1][0] == OBPOBUType.OBP_OBU_PADDING
     assert obus[1][1] == 0 # Default temporal_id
     assert obus[1][2] == 0 # Default spatial_id
     assert obus[1][3] == b"\x00" # Payload of the padding OBU
+
+def test_iter_obus_temporal_delimiter():
+    """Test iter_obus with a Temporal Delimiter OBU."""
+    # OBU Header: type 2 (Temporal Delimiter), has_size_field=1 -> 0x12
+    # OBU Size (leb128): 0 bytes -> 0x00
+    SAMPLE_TD_OBU = b"\x12\x00"
+    obus = list(iter_obus(SAMPLE_TD_OBU))
+    assert len(obus) == 1
+    assert obus[0][0] == OBPOBUType.OBP_OBU_TEMPORAL_DELIMITER
+    assert obus[0][1] == 0 # Default temporal_id
+    assert obus[0][2] == 0 # Default spatial_id
+    assert obus[0][3] == b"" # Empty payload
 
 # --- Tests for parse_sequence_header ---
 
@@ -201,9 +209,70 @@ def test_c_library_loaded():
 
 # --- More tests to be added for other parsing functions and OBU types ---
 # Placeholder for future tests
-# def test_parse_frame_header_valid():
-#     pass
+def test_parse_frame_header_valid():
+    """Placeholder for testing valid Frame Header parsing."""
+    pytest.skip("Test not implemented")
 
-# def test_parse_metadata_valid():
-#     pass
-# ... etc.
+def test_parse_frame_header_error_conditions():
+    """Placeholder for testing Frame Header parsing error conditions."""
+    pytest.skip("Test not implemented")
+
+def test_parse_frame_valid():
+    """Placeholder for testing valid Frame OBU parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_frame_error_conditions():
+    """Placeholder for testing Frame OBU parsing error conditions."""
+    pytest.skip("Test not implemented")
+
+def test_parse_tile_group_valid():
+    """Placeholder for testing valid Tile Group OBU parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_tile_group_error_conditions():
+    """Placeholder for testing Tile Group OBU parsing error conditions."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_hdr_cll():
+    """Placeholder for testing Metadata OBU (HDR CLL) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_hdr_mdcv():
+    """Placeholder for testing Metadata OBU (HDR MDCV) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_scalability():
+    """Placeholder for testing Metadata OBU (Scalability) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_itut_t35():
+    """Placeholder for testing Metadata OBU (ITU-T T.35) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_timecode():
+    """Placeholder for testing Metadata OBU (Timecode) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_unregistered():
+    """Placeholder for testing Metadata OBU (Unregistered) parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_metadata_error_conditions():
+    """Placeholder for testing Metadata OBU parsing error conditions."""
+    pytest.skip("Test not implemented")
+
+def test_parse_tile_list_valid():
+    """Placeholder for testing valid Tile List OBU parsing."""
+    pytest.skip("Test not implemented")
+
+def test_parse_tile_list_error_conditions():
+    """Placeholder for testing Tile List OBU parsing error conditions."""
+    pytest.skip("Test not implemented")
+
+def test_obu_state_wrapper():
+    """Placeholder for testing OBPStateWrapper functionality."""
+    # Primarily, ensure it can be created and passed to functions.
+    # from pyobuparse.parser import OBPStateWrapper
+    # state = OBPStateWrapper()
+    # assert state._c_state_instance is not None # Basic check
+    pytest.skip("Test not implemented")
