@@ -1,0 +1,72 @@
+name: PyObuParse CI
+
+on:
+  push:
+    branches: [ main ] # Assuming 'main' is the default branch
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Test with Python 3.10 as it's been used for dev and is a common version.
+        # Can expand to ['3.8', '3.9', '3.10', '3.11', '3.12'] later if needed.
+        python-version: ['3.10'] 
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qy
+        sudo apt-get install -y python3-sphinx
+        # Install python3.X-dev corresponding to the matrix python version
+        # For 3.10, it's python3.10-dev. For others, adjust accordingly.
+        # A simpler approach for a single Python version:
+        sudo apt-get install -y python${{ matrix.python-version }}-dev
+        # If the above causes issues with specific Ubuntu versions, fall back to:
+        # sudo apt-get install -y python3-dev # General dev headers
+
+    - name: Install Python build tools and project dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install build setuptools wheel twine # Twine for future publishing
+        # Install pytest for running tests (if not already in pyproject.toml as a dev dependency)
+        pip install pytest
+        # Install project dependencies (if any are listed in pyproject.toml's [project.dependencies])
+        # cd pyobuparse && pip install . # This would install the project itself, which is done in the next step
+        # For now, assuming no extra runtime deps beyond what setuptools handles for the C extension.
+
+    - name: Build and install pyobuparse
+      working-directory: ./pyobuparse # Run pip install from the pyobuparse subdirectory
+      run: |
+        pip install .
+        
+    - name: Run tests
+      # Tests should be run from the repository root so that Python can find the installed pyobuparse package
+      # and also so that tests can correctly locate any test files if they use relative paths.
+      run: |
+        python -m pytest pyobuparse/tests 
+        # Using pytest directly as it's a common runner and was used in previous test examples.
+        # The `unittest discover` command is also valid.
+
+    - name: Build Sphinx documentation
+      working-directory: ./pyobuparse/docs
+      run: |
+        make html SPHINXOPTS="-W --keep-going"
+
+    - name: Upload documentation artifact (optional)
+      uses: actions/upload-artifact@v4
+      if: always() # Upload even if previous steps fail, to inspect docs
+      with:
+        name: sphinx-docs-py${{ matrix.python-version }}
+        path: pyobuparse/docs/_build/html/
+        retention-days: 7

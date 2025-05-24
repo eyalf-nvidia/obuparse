@@ -4,8 +4,8 @@ sys.path.insert(0, os.path.abspath('../../src')) # Point to 'src' directory
 
 # -- Project information -----------------------------------------------------
 project = 'PyObuParse'
-copyright = '2024, Your Name (or Google)' # Placeholder
-author = 'Your Name (or Google)' # Placeholder
+copyright = '2024, Google' # Updated
+author = 'Google' # Updated
 
 # Attempt to get version from the package itself
 try:

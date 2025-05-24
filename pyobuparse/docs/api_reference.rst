@@ -12,17 +12,25 @@ Main Parser Module
    :show-inheritance:
    :special-members: __init__
 
+   .. note::
+      Due to previous tooling issues, docstrings for some classes within
+      this module (specifically `SequenceHeader` and `FrameHeader`) may be
+      incomplete or not up-to-date in the generated documentation.
+
 Error Handling
 --------------
-The primary exception raised by this library is:
+The primary exception raised by this library is `pyobuparse.parser.OBUParseError`.
+It is documented as part of the `pyobuparse.parser` module above.
+If specific details are needed here, they can be added, but `automodule` for
+`pyobuparse.parser` should cover it.
+The `OBUParseError` class is part of `pyobuparse.parser` and will be documented
+when `pyobuparse.parser` is processed by `automodule`.
 
-.. autoclass:: pyobuparse.parser.OBUParseError
-   :members:
-
-Constants and Low-Level Wrappers (Advanced)
--------------------------------------------
+Low-Level C Wrapper (Advanced)
+------------------------------
+This module provides the low-level ctypes interface to the C library.
 These are typically for internal use or advanced scenarios.
 
 .. automodule:: pyobuparse._c_wrapper
-   :members: OBP_OBU_SEQUENCE_HEADER, OBP_OBU_TEMPORAL_DELIMITER, OBP_OBU_FRAME_HEADER, OBP_OBU_TILE_GROUP, OBP_OBU_METADATA, OBP_OBU_FRAME, OBP_OBU_REDUNDANT_FRAME_HEADER, OBP_OBU_TILE_LIST, OBP_OBU_PADDING, OBPMetadataType, OBPColorPrimaries, OBPTransferCharacteristics, OBPMatrixCoefficients, OBPChromaSamplePosition, OBPFrameType
+   :members: OBPOBUType, OBPMetadataType, OBPColorPrimaries, OBPTransferCharacteristics, OBPMatrixCoefficients, OBPChromaSamplePosition, OBPFrameType, OBPError, OBPState, free_obp_error_string
    :undoc-members:

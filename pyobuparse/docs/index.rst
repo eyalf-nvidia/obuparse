@@ -12,7 +12,9 @@ PyObuParse is a Python wrapper for the `obuparse` C library, designed for parsin
    :maxdepth: 2
    :caption: Contents:
 
+   usage
    api_reference
+   cli_reference
 
 Indices and tables
 ==================
