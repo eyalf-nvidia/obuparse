@@ -5,9 +5,9 @@ obuparse_extension = Extension(
     name='pyobuparse._obuparse_c',  # Fully qualified name for the .pyd/.so file
     sources=[
         'src/pyobuparse/_obuparse_module.c', # The new C shim
-        'src/pyobuparse/obuparse.c'          # The original C library
+        '../obuparse.c'          # The original C library
     ],
-    include_dirs=['src/pyobuparse'], # For obuparse.h
+    include_dirs=['src/pyobuparse', '..'], # For obuparse.h
     define_macros=[('OBUPARSE_EXPORTS', '1')], # Added for symbol export control
     extra_compile_args=['-fPIC'] if platform.system() != "Windows" else [],
     # language='c', # Default, but can be explicit

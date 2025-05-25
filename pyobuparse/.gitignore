@@ -103,3 +103,7 @@ pyenv/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# Python build artifacts
+build/
+*.so

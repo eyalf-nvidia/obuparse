@@ -1,0 +1,9 @@
+# Compiled files
+*.o
+*.a
+*.so
+*.dll
+
+# Executables
+tools/obudump
+tools/obudump.exe

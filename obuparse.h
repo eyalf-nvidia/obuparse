@@ -14,6 +14,16 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 
+#if defined(_WIN32) && defined(OBUPARSE_EXPORTS)
+    #define OBUPARSE_API __declspec(dllexport)
+#elif defined(_WIN32) // For importing, not strictly needed by ctypes but good practice
+    #define OBUPARSE_API __declspec(dllimport)
+#elif defined(__GNUC__) && defined(OBUPARSE_EXPORTS)
+    #define OBUPARSE_API __attribute__((visibility("default")))
+#else
+    #define OBUPARSE_API // Define as empty for other cases or static linking
+#endif
+
 #ifndef OBUPARSE_H
 #define OBUPARSE_H
 
@@ -547,7 +557,7 @@ typedef struct OBPError {
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_get_next_obu(uint8_t *buf, size_t buf_size, OBPOBUType *obu_type, ptrdiff_t *offset,
+OBUPARSE_API int obp_get_next_obu(uint8_t *buf, size_t buf_size, OBPOBUType *obu_type, ptrdiff_t *offset,
                      size_t *obu_size, int *temporal_id, int *spatial_id, OBPError *err);
 
 /*
@@ -565,7 +575,7 @@ int obp_get_next_obu(uint8_t *buf, size_t buf_size, OBPOBUType *obu_type, ptrdif
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_sequence_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPError *err);
+OBUPARSE_API int obp_parse_sequence_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPError *err);
 
 /*
  * obp_parse_frame_header parses a frame header OBU and fills out the fields in a user-provided
@@ -586,7 +596,7 @@ int obp_parse_sequence_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_frame_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPState *state,
+OBUPARSE_API int obp_parse_frame_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPState *state,
                            int temporal_id, int spatial_id, OBPFrameHeader *frame_header, int *SeenFrameHeader, OBPError *err);
 
 /*
@@ -609,7 +619,7 @@ int obp_parse_frame_header(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_frame(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPState *state,
+OBUPARSE_API int obp_parse_frame(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header, OBPState *state,
                     int temporal_id, int spatial_id, OBPFrameHeader *frame_header, OBPTileGroup *tile_group,
                     int *SeenFrameHeader, OBPError *err);
 
@@ -630,7 +640,7 @@ int obp_parse_frame(uint8_t *buf, size_t buf_size, OBPSequenceHeader *seq_header
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_tile_group(uint8_t *buf, size_t buf_size, OBPFrameHeader *frame_header, OBPTileGroup *tile_group,
+OBUPARSE_API int obp_parse_tile_group(uint8_t *buf, size_t buf_size, OBPFrameHeader *frame_header, OBPTileGroup *tile_group,
                          int *SeenFrameHeader, OBPError *err);
 
 /*
@@ -649,7 +659,7 @@ int obp_parse_tile_group(uint8_t *buf, size_t buf_size, OBPFrameHeader *frame_he
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_metadata(uint8_t *buf, size_t buf_size, OBPMetadata *metadata, OBPError *err);
+OBUPARSE_API int obp_parse_metadata(uint8_t *buf, size_t buf_size, OBPMetadata *metadata, OBPError *err);
 
 /*
  * obp_parse_tile_list parses a tile list OBU and fills out the fields in a user-provided OBPTileList
@@ -667,6 +677,6 @@ int obp_parse_metadata(uint8_t *buf, size_t buf_size, OBPMetadata *metadata, OBP
  * Returns:
  *     0 on success, -1 on error.
  */
-int obp_parse_tile_list(uint8_t *buf, size_t buf_size, OBPTileList *tile_list, OBPError *err);
+OBUPARSE_API int obp_parse_tile_list(uint8_t *buf, size_t buf_size, OBPTileList *tile_list, OBPError *err);
 
 #endif
