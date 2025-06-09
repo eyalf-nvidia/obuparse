@@ -59,12 +59,13 @@ Python Package
 
  A Python wrapper is provided using `cffi`. Build and install it in
  editable mode so the extension is compiled and the CLI is available.
- The tests expect the extension to be installed, so make sure to
-install before running them:
+ The tests expect the extension to be installed. Install in editable
+ mode with the test extras so both the extension and test dependencies
+ are built:
 
 
 ```bash
-pip install -e .
+pip install -e .[test]
 ```
 
 The build process now compiles both the CFFI extension and the native

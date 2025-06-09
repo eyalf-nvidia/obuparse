@@ -1,15 +1,13 @@
 import os
 import sys
 import subprocess
-import pytest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT_DIR, "python"))
 
-try:
-    import cffi  # noqa: F401
-except ImportError:
-    raise RuntimeError("cffi must be installed to build the Python extension")
+import pytest
+
+cffi = pytest.importorskip("cffi")
 
 try:  # prefer installed package
     import obuparse
