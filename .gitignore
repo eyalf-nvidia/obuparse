@@ -16,6 +16,18 @@ dist/
 
 # IDE
 .vscode/
+.idea/
+
+# Virtual environments
+.env/
+.venv/
+venv/
+env/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Generated files
 /obudump
