@@ -1,5 +1,6 @@
 import os
 import sys
+import subprocess
 import pytest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
@@ -15,7 +16,6 @@ try:  # prefer installed package
     import pyobuparse
 except Exception:
     # build the CFFI extension in-place if missing
-    import subprocess
     subprocess.check_call(
         [sys.executable, "ffi_builder.py"], cwd=os.path.join(ROOT_DIR, "python")
     )
@@ -51,3 +51,33 @@ def test_get_next_obu_temporal_delimiter():
     assert offset[0] == 2
     assert obu_size[0] == 0
     assert pyobuparse.lib is obuparse.lib
+
+
+def _write_minimal_ivf(path):
+    header = bytearray()
+    header.extend(b'DKIF')
+    header.extend((0).to_bytes(2, 'little'))
+    header.extend((32).to_bytes(2, 'little'))
+    header.extend(b'AV01')
+    header.extend((0).to_bytes(2, 'little'))
+    header.extend((0).to_bytes(2, 'little'))
+    header.extend((30).to_bytes(4, 'little'))
+    header.extend((1).to_bytes(4, 'little'))
+    header.extend((1).to_bytes(4, 'little'))
+    header.extend((0).to_bytes(4, 'little'))
+    frame = bytes([0x12, 0x00])
+    frame_header = len(frame).to_bytes(4, 'little') + (0).to_bytes(8, 'little')
+    with open(path, 'wb') as f:
+        f.write(header)
+        f.write(frame_header)
+        f.write(frame)
+
+
+def test_cli_parses_ivf(tmp_path):
+    ivf = tmp_path / 'sample.ivf'
+    _write_minimal_ivf(ivf)
+    out = subprocess.check_output(
+        [sys.executable, '-m', 'obuparse.cli', '-v', str(ivf)],
+        text=True,
+    )
+    assert "'obu_type': 2" in out

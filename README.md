@@ -86,3 +86,30 @@ Running tests (after installation):
 pytest
 ```
 
+Examples
+--------
+
+Using the Python bindings directly:
+
+```python
+>>> from obuparse import ffi, lib
+>>> data = bytes([0x12, 0x00])
+>>> err_buf = ffi.new('char[1024]')
+>>> err = ffi.new('OBPError *', {'error': err_buf, 'size': 1024})
+>>> obu_type = ffi.new('OBPOBUType *')
+>>> offset = ffi.new('ptrdiff_t *')
+>>> obu_size = ffi.new('size_t *')
+>>> temporal_id = ffi.new('int *')
+>>> spatial_id = ffi.new('int *')
+>>> lib.obp_get_next_obu(data, len(data), obu_type, offset, obu_size,
+...                      temporal_id, spatial_id, err)
+0
+```
+
+Running the command-line tool to inspect an IVF file:
+
+```bash
+$ obudump -v sample.ivf
+{'obu_type': 2, 'offset': 2, 'obu_size': 0, 'temporal_id': 0, 'spatial_id': 0}
+```
+

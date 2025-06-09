@@ -24,7 +24,9 @@ def parse_ivf(path, verbose=False):
                 temporal_id = ffi.new('int *')
                 spatial_id = ffi.new('int *')
                 ret = lib.obp_get_next_obu(
-                    ffi.from_buffer(packet, writable=False)[packet_pos:],
+                    ffi.from_buffer(packet, require_writable=False)[
+                        packet_pos:packet_size
+                    ],
                     packet_size - packet_pos,
                     obu_type,
                     offset,

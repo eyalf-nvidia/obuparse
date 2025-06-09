@@ -1,3 +1,30 @@
 [build-system]
-requires = ["setuptools", "cffi>=1.0"]
+requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4", "cffi>=1.0"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "obuparse"
+dynamic = ["version"]
+description = "A Python wrapper for the obuparse AV1 OBU parsing library."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: ISC License (ISCL)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/google/pyobuparse"
+Repository = "https://github.com/google/pyobuparse"
+
+[tool.setuptools_scm]
+version_scheme = "guess-next-dev"
+local_scheme = "no-local-version"
+fallback_version = "0.1.0"
+
+[tool.setuptools.packages.find]
+where = ["python"]
+include = ["obuparse*", "pyobuparse*"]
+
