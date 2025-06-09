@@ -57,19 +57,24 @@ an IVF file into JSON, called `dumpobu`.
 Python Package
 --------------
 
-A Python wrapper is provided using `cffi`. Build and install it in
-editable mode so the extension is compiled and the CLI is available.
-The tests expect the extension to be installed, so make sure to
+ A Python wrapper is provided using `cffi`. Build and install it in
+ editable mode so the extension is compiled and the CLI is available.
+ The tests expect the extension to be installed, so make sure to
 install before running them:
+
 
 ```bash
 pip install -e .
 ```
 
-This installs the `obuparse` module and an `obudump` command-line application
-implemented in Python. The CLI can parse IVF files and display basic information
-about contained OBUs. If you wish to build the original C version of
-`obudump`, run:
+The build process compiles the CFFI extension automatically, so you do not need
+to run `make` unless you specifically want the standalone C library or the
+native `obudump` binary.
+
+ This installs the `obuparse` module and an `obudump` command-line application
+ implemented in Python. The CLI can parse IVF files and display basic
+ information about contained OBUs. If you wish to build the original C
+ version of `obudump`, run:
 
 ```bash
 make tools
