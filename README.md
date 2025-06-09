@@ -58,7 +58,9 @@ Python Package
 --------------
 
 A Python wrapper is provided using `cffi`. Build and install it in
-editable mode so the extension is compiled and the CLI is available:
+editable mode so the extension is compiled and the CLI is available.
+The tests expect the extension to be installed, so make sure to
+install before running them:
 
 ```bash
 pip install -e .
@@ -78,3 +80,4 @@ Running tests (after installation):
 ```bash
 pytest
 ```
+
