@@ -53,3 +53,22 @@ Tools
 
 The `tools` directory contains a simple tool to parse and serialize OBUs from
 an IVF file into JSON, called `dumpobu`.
+
+Python Package
+--------------
+
+A Python wrapper is provided using `cffi`. Install it with:
+
+```bash
+pip install .
+```
+
+This installs the `obuparse` module and a compatible `obudump` command line
+application implemented in Python. The CLI can parse IVF files and display basic
+information about contained OBUs.
+
+Running tests:
+
+```bash
+pytest
+```

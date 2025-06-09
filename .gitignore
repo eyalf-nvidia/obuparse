@@ -1,0 +1,22 @@
+# Build artifacts
+*.o
+*.so
+*.a
+*.dll
+*.dylib
+*.exe
+
+# Python artifacts
+__pycache__/
+build/
+dist/
+*.egg-info/
+*.pyc
+*.pyd
+
+# IDE
+.vscode/
+
+# Generated files
+/obudump
+
