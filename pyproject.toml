@@ -9,6 +9,7 @@ description = "A Python wrapper for the obuparse AV1 OBU parsing library."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.7"
+dependencies = ["cffi>=1.0"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: ISC License (ISCL)",
@@ -27,4 +28,7 @@ fallback_version = "0.1.0"
 [tool.setuptools.packages.find]
 where = ["python"]
 include = ["obuparse*", "pyobuparse*"]
+
+[project.optional-dependencies]
+test = ["pytest", "cffi>=1.0"]
 
