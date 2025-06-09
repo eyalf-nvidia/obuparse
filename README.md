@@ -67,14 +67,14 @@ install before running them:
 pip install -e .
 ```
 
-The build process compiles the CFFI extension automatically, so you do not need
-to run `make` unless you specifically want the standalone C library or the
-native `obudump` binary.
+The build process now compiles both the CFFI extension and the native
+`obudump` tool automatically. No manual `make` step is required when
+installing via `pip`.
 
- This installs the `obuparse` module and an `obudump` command-line application
- implemented in Python. The CLI can parse IVF files and display basic
- information about contained OBUs. If you wish to build the original C
- version of `obudump`, run:
+ This installs the `obuparse` module, a Python-based `obudump` command-line
+ application, and the native `obudump` binary. The CLI can parse IVF files and
+ display basic information about contained OBUs. The Makefile is still
+ available should you wish to rebuild the tools manually:
 
 ```bash
 make tools

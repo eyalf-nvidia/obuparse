@@ -12,6 +12,7 @@ except ImportError:
 
 try:  # prefer installed package
     import obuparse
+    import pyobuparse
 except Exception:
     # build the CFFI extension in-place if missing
     import subprocess
@@ -21,6 +22,9 @@ except Exception:
     if 'obuparse' in sys.modules:
         del sys.modules['obuparse']
     import obuparse
+    if 'pyobuparse' in sys.modules:
+        del sys.modules['pyobuparse']
+    import pyobuparse
 
 # Test parsing an OBU header for temporal delimiter (size 0)
 def test_get_next_obu_temporal_delimiter():
@@ -46,3 +50,4 @@ def test_get_next_obu_temporal_delimiter():
     assert obu_type[0] == 2
     assert offset[0] == 2
     assert obu_size[0] == 0
+    assert pyobuparse.lib is obuparse.lib

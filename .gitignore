@@ -32,4 +32,5 @@ htmlcov/
 
 # Generated files
 /obudump
+tools/obudump
 
