@@ -53,3 +53,64 @@ Tools
 
 The `tools` directory contains a simple tool to parse and serialize OBUs from
 an IVF file into JSON, called `dumpobu`.
+
+Python Package
+--------------
+
+ A Python wrapper is provided using `cffi`. Build and install it in
+ editable mode so the extension is compiled and the CLI is available.
+ The tests expect the extension to be installed. Install in editable
+ mode with the test extras so both the extension and test dependencies
+ are built:
+
+
+```bash
+pip install -e .[test]
+```
+
+The build process now compiles both the CFFI extension and the native
+`obudump` tool automatically. No manual `make` step is required when
+installing via `pip`.
+
+ This installs the `obuparse` module, a Python-based `obudump` command-line
+ application, and the native `obudump` binary. The CLI can parse IVF files and
+ display basic information about contained OBUs. The Makefile is still
+ available should you wish to rebuild the tools manually:
+
+```bash
+make tools
+```
+
+Running tests (after installation):
+
+```bash
+pytest
+```
+
+Examples
+--------
+
+Using the Python bindings directly:
+
+```python
+>>> from obuparse import ffi, lib
+>>> data = bytes([0x12, 0x00])
+>>> err_buf = ffi.new('char[1024]')
+>>> err = ffi.new('OBPError *', {'error': err_buf, 'size': 1024})
+>>> obu_type = ffi.new('OBPOBUType *')
+>>> offset = ffi.new('ptrdiff_t *')
+>>> obu_size = ffi.new('size_t *')
+>>> temporal_id = ffi.new('int *')
+>>> spatial_id = ffi.new('int *')
+>>> lib.obp_get_next_obu(data, len(data), obu_type, offset, obu_size,
+...                      temporal_id, spatial_id, err)
+0
+```
+
+Running the command-line tool to inspect an IVF file:
+
+```bash
+$ obudump -v sample.ivf
+{'obu_type': 2, 'offset': 2, 'obu_size': 0, 'temporal_id': 0, 'spatial_id': 0}
+```
+

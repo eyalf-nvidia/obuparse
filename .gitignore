@@ -1,0 +1,36 @@
+# Build artifacts
+*.o
+*.so
+*.a
+*.dll
+*.dylib
+*.exe
+
+# Python artifacts
+__pycache__/
+build/
+dist/
+*.egg-info/
+*.pyc
+*.pyd
+python/obuparse/_obulib.*
+
+# IDE
+.vscode/
+.idea/
+
+# Virtual environments
+.env/
+.venv/
+venv/
+env/
+
+# Test and coverage artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Generated files
+/obudump
+tools/obudump
+
