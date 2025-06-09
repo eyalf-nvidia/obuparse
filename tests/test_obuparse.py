@@ -1,8 +1,11 @@
 import os
 import sys
+import pytest
 
 ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(ROOT_DIR, "python"))
+
+pytest.importorskip("cffi")
 
 try:  # prefer installed package
     import obuparse
