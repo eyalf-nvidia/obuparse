@@ -1,4 +1,20 @@
-import obuparse
+import os
+import sys
+
+ROOT_DIR = os.path.dirname(os.path.dirname(__file__))
+sys.path.insert(0, os.path.join(ROOT_DIR, "python"))
+
+try:  # prefer installed package
+    import obuparse
+except Exception:
+    # build the CFFI extension in-place if missing
+    import subprocess
+    subprocess.check_call(
+        [sys.executable, "ffi_builder.py"], cwd=os.path.join(ROOT_DIR, "python")
+    )
+    if 'obuparse' in sys.modules:
+        del sys.modules['obuparse']
+    import obuparse
 
 # Test parsing an OBU header for temporal delimiter (size 0)
 def test_get_next_obu_temporal_delimiter():
